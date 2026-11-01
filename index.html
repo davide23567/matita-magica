@@ -828,6 +828,76 @@
       transform: scale(1.04);
     }
 
+    /* Scelta sorgente foto (fotocamera / galleria) */
+    .photo-source-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 8px;
+    }
+
+    .photo-source-btn {
+      width: 100%;
+      padding: 16px;
+      border: none;
+      border-radius: var(--radius-pill);
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: white;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: transform 0.2s ease;
+    }
+
+    .photo-source-btn:active { transform: scale(0.97); }
+    .photo-source-btn.camera { background: linear-gradient(135deg, var(--primary), #FF8E53); box-shadow: 0 8px 18px rgba(255, 94, 126, 0.35); }
+    .photo-source-btn.gallery { background: linear-gradient(135deg, var(--secondary), var(--accent-blue)); box-shadow: 0 8px 18px rgba(78, 205, 196, 0.35); }
+    .photo-source-btn.cancel { background: #F0E8DC; color: #6B5B4B; box-shadow: none; }
+
+    /* Visualizzatore foto a schermo intero */
+    .photo-viewer-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.92);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+      padding: 16px;
+    }
+
+    .photo-viewer-overlay.active {
+      display: flex;
+      animation: fadeIn 0.25s ease;
+    }
+
+    .photo-viewer-overlay img {
+      max-width: 100%;
+      max-height: calc(100% - 90px);
+      object-fit: contain;
+      border-radius: 14px;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .photo-viewer-back {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      background: white;
+      color: var(--primary);
+      border: none;
+      border-radius: var(--radius-pill);
+      padding: 12px 20px;
+      font-size: 1.1rem;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+    }
+
     .btn-celebrate {
       width: 100%;
       padding: 16px;
@@ -1598,7 +1668,7 @@
     <section id="viewGallery" class="view-section">
       <div class="hero-banner" style="background: linear-gradient(135deg, #4ECDC4 0%, #3A86FF 100%);">
         <div class="hero-text">
-          <h1 id="galleryHeroTitle">I Miei Disegni d'Oro 🏆</h1>
+          <h1 id="galleryHeroTitle">I Miei Disegni</h1>
           <p id="galleryHeroSubtitle">Guarda i tuoi capolavori e le foto dei tuoi disegni su carta!</p>
         </div>
       </div>
@@ -1625,9 +1695,10 @@
         <h4 id="photoSectionTitle">📸 Fotografa il tuo disegno su carta!</h4>
         <p id="photoSectionDesc">Mostra come ti è venuto per conservarlo nella tua galleria personale!</p>
         
-        <input type="file" id="paperPhotoInput" accept="image/*" capture="environment" style="display: none;" onchange="handlePhotoCaptured(event)">
+        <input type="file" id="paperPhotoCamera" accept="image/*" capture="environment" style="display: none;" onchange="handlePhotoCaptured(event)">
+        <input type="file" id="paperPhotoGallery" accept="image/*" style="display: none;" onchange="handlePhotoCaptured(event)">
         
-        <button class="btn-camera" onclick="document.getElementById('paperPhotoInput').click()">
+        <button class="btn-camera" onclick="openPhotoSource()">
           📷 <span id="btnPhotoText">Scatta o Scegli Foto</span>
         </button>
 
@@ -1677,6 +1748,26 @@
         <button class="btn-confirm-delete" id="btnConfirmDelete" onclick="confirmDeleteDrawing()">Elimina</button>
       </div>
     </div>
+  </div>
+
+  <!-- MODAL SCELTA SORGENTE FOTO -->
+  <div class="modal-overlay" id="photoSourceModal">
+    <div class="modal-card">
+      <div style="font-size: 3rem; margin-bottom: 6px;">📸</div>
+      <h3>Aggiungi una foto</h3>
+      <p>Vuoi scattare una nuova foto o sceglierne una dalla galleria?</p>
+      <div class="photo-source-actions">
+        <button class="photo-source-btn camera" id="btnPhotoCamera" onclick="pickPhoto('camera')">📷 Scatta una foto</button>
+        <button class="photo-source-btn gallery" id="btnPhotoGallery" onclick="pickPhoto('gallery')">🖼️ Scegli dalla galleria</button>
+        <button class="photo-source-btn cancel" id="btnPhotoCancel" onclick="closePhotoSource()">Annulla</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VISUALIZZATORE FOTO REALE -->
+  <div class="photo-viewer-overlay" id="photoViewerModal" onclick="closeFullPhoto()">
+    <button class="photo-viewer-back" id="btnPhotoViewerBack" onclick="closeFullPhoto(); event.stopPropagation();">← Indietro</button>
+    <img id="photoViewerImg" src="" alt="Foto del disegno reale" onclick="event.stopPropagation()">
   </div>
 
   <!-- Bottom Navigation Bar -->
@@ -1729,7 +1820,7 @@
         photoSectionDesc: "Mostra come ti è venuto per conservarlo nella tua galleria personale!",
         btnPhotoText: "Scatta o Scegli Foto",
         btnFinishCelebrate: "Ho finito il disegno! 🚀",
-        galleryHeroTitle: "I Miei Disegni d'Oro 🏆",
+        galleryHeroTitle: "I Miei Disegni",
         galleryHeroSubtitle: "Guarda i tuoi capolavori e le foto dei tuoi disegni su carta!",
         galleryEmptyTitle: "Non hai ancora completato nessun disegno!",
         galleryEmptyText: "Vai nella Home, scegli un soggetto e inizia a disegnare con la matita!",
@@ -1792,7 +1883,7 @@
         photoSectionDesc: "Show how it turned out and keep it in your personal art gallery!",
         btnPhotoText: "Take or Choose Photo",
         btnFinishCelebrate: "I finished my drawing! 🚀",
-        galleryHeroTitle: "My Golden Artworks 🏆",
+        galleryHeroTitle: "My Artworks",
         galleryHeroSubtitle: "Check out your drawings and photos of your real paper creations!",
         galleryEmptyTitle: "You haven't finished any drawings yet!",
         galleryEmptyText: "Go to Home, pick a subject and start drawing with your pencil!",
@@ -2427,24 +2518,47 @@
       }
     }
 
+    /* Scelta sorgente foto: fotocamera oppure galleria */
+    let photoTargetId = null;
+
+    function openPhotoSource(lessonId) {
+      photoTargetId = lessonId || (state.currentLesson && state.currentLesson.id) || null;
+      if (!photoTargetId) return;
+      document.getElementById("photoSourceModal").classList.add("active");
+    }
+
+    function closePhotoSource() {
+      document.getElementById("photoSourceModal").classList.remove("active");
+    }
+
+    function pickPhoto(mode) {
+      closePhotoSource();
+      document.getElementById(mode === 'camera' ? "paperPhotoCamera" : "paperPhotoGallery").click();
+    }
+
     function handlePhotoCaptured(event) {
       const file = event.target.files && event.target.files[0];
-      if (!file || !state.currentLesson) return;
+      const lessonId = photoTargetId;
+      event.target.value = "";
+      if (!file || !lessonId) return;
 
-      const lessonId = state.currentLesson.id;
       compressPhoto(file, function(dataUrl) {
-        // Salva la foto per il soggetto corrente
+        // Salva la foto per il soggetto scelto
         if (!storePhoto(lessonId, dataUrl)) return;
 
-        // Mostra l'anteprima nel modal
-        const previewWrap = document.getElementById("modalPhotoPreviewWrap");
-        const previewImg = document.getElementById("modalPhotoPreviewImg");
-        previewImg.src = dataUrl;
-        previewWrap.style.display = "block";
+        // Aggiorna l'anteprima nel modal di congratulazioni (se aperto)
+        if (state.currentLesson && state.currentLesson.id === lessonId) {
+          const previewWrap = document.getElementById("modalPhotoPreviewWrap");
+          const previewImg = document.getElementById("modalPhotoPreviewImg");
+          previewImg.src = dataUrl;
+          previewWrap.style.display = "block";
+        }
+
+        // Aggiorna la galleria (se visibile)
+        if (document.getElementById("viewGallery").classList.contains("active")) renderGallery();
 
         playTone(600, "triangle", 0.2);
       });
-      event.target.value = "";
     }
 
     function closeCelebrationModal() {
@@ -2547,25 +2661,8 @@
       container.appendChild(grid);
     }
 
-    let activeLessonForPhoto = null;
     function triggerPhotoForLesson(lessonId) {
-      activeLessonForPhoto = lessonId;
-      const input = document.getElementById("paperPhotoInput");
-      input.onchange = function(e) {
-        const file = e.target.files && e.target.files[0];
-        const targetId = activeLessonForPhoto;
-        if (file && targetId) {
-          compressPhoto(file, function(dataUrl) {
-            if (storePhoto(targetId, dataUrl)) {
-              renderGallery();
-              playTone(600, "triangle", 0.2);
-            }
-          });
-        }
-        e.target.value = "";
-        input.onchange = handlePhotoCaptured;
-      };
-      input.click();
+      openPhotoSource(lessonId);
     }
 
     /* Eliminazione disegno con conferma */
@@ -2601,10 +2698,13 @@
     function viewFullPhoto(lessonId) {
       const url = state.photos[lessonId];
       if (!url) return;
-      const w = window.open("");
-      if (w) {
-        w.document.write(`<img src="${url}" style="max-width:100%; height:auto; display:block; margin:20px auto; border-radius:12px; box-shadow:0 8px 30px rgba(0,0,0,0.3);">`);
-      }
+      document.getElementById("photoViewerImg").src = url;
+      document.getElementById("photoViewerModal").classList.add("active");
+    }
+
+    function closeFullPhoto() {
+      document.getElementById("photoViewerModal").classList.remove("active");
+      document.getElementById("photoViewerImg").src = "";
     }
 
     /* -------------------------------------------------------------

@@ -1,6 +1,8 @@
 package com.example.matitamagica
 
+import android.Manifest
 import android.annotation.SuppressLint
+import android.content.pm.PackageManager
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
@@ -14,11 +16,15 @@ import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
+import java.io.File
 
 class MainActivity : ComponentActivity() {
 
     private lateinit var webView: WebView
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
+    private var cameraOutputUri: Uri? = null
 
     private val fileChooserLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -31,6 +37,40 @@ class MainActivity : ComponentActivity() {
             filePathCallback?.onReceiveValue(null)
         }
         filePathCallback = null
+    }
+
+    private val cameraLauncher = registerForActivityResult(
+        ActivityResultContracts.TakePicture()
+    ) { success ->
+        val uri = cameraOutputUri
+        filePathCallback?.onReceiveValue(if (success && uri != null) arrayOf(uri) else null)
+        filePathCallback = null
+        cameraOutputUri = null
+    }
+
+    private val cameraPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            launchCamera()
+        } else {
+            filePathCallback?.onReceiveValue(null)
+            filePathCallback = null
+        }
+    }
+
+    private fun launchCamera() {
+        try {
+            val dir = File(cacheDir, "camera").apply { mkdirs() }
+            val photoFile = File.createTempFile("drawing_", ".jpg", dir)
+            val uri = FileProvider.getUriForFile(this, "$packageName.fileprovider", photoFile)
+            cameraOutputUri = uri
+            cameraLauncher.launch(uri)
+        } catch (e: Exception) {
+            filePathCallback?.onReceiveValue(null)
+            filePathCallback = null
+            cameraOutputUri = null
+        }
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -61,6 +101,21 @@ class MainActivity : ComponentActivity() {
                 ): Boolean {
                     this@MainActivity.filePathCallback?.onReceiveValue(null)
                     this@MainActivity.filePathCallback = filePathCallback
+
+                    // Se la pagina richiede la fotocamera (capture), apri direttamente lo scatto
+                    if (fileChooserParams?.isCaptureEnabled == true) {
+                        if (ContextCompat.checkSelfPermission(
+                                this@MainActivity, Manifest.permission.CAMERA
+                            ) == PackageManager.PERMISSION_GRANTED
+                        ) {
+                            launchCamera()
+                        } else {
+                            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                        }
+                        return true
+                    }
+
+                    // Altrimenti selettore file / galleria
                     val intent = fileChooserParams?.createIntent() ?: Intent(Intent.ACTION_GET_CONTENT).apply {
                         type = "image/*"
                     }
@@ -85,6 +140,14 @@ class MainActivity : ComponentActivity() {
             override fun handleOnBackPressed() {
                 webView.evaluateJavascript(
                     "(function() { " +
+                    "  const viewer = document.getElementById('photoViewerModal'); " +
+                    "  if (viewer && viewer.classList.contains('active')) { " +
+                    "    closeFullPhoto(); return true; " +
+                    "  } " +
+                    "  const source = document.getElementById('photoSourceModal'); " +
+                    "  if (source && source.classList.contains('active')) { " +
+                    "    closePhotoSource(); return true; " +
+                    "  } " +
                     "  const settings = document.getElementById('settingsModal'); " +
                     "  if (settings && settings.classList.contains('active')) { " +
                     "    closeSettingsModal(); return true; " +
